@@ -288,8 +288,8 @@ void *button_action(void *h_sock)
     char msg[BUFFER_MAX];
     int clnt_sock=(*(int *)h_sock);
     char* target[3] = {"30", "35", "40"};
-    int time_check = 0;
     int t = 0;
+    int value;
 
     if(-1 == GPIOExport(BUTTONOUT) || -1 == GPIOExport(BUTTONPIN))
         return NULL;
@@ -306,6 +306,7 @@ void *button_action(void *h_sock)
 
     while (1)
     {
+        int p_short=0;
         // for test
         
         // usleep(300 * 10000);
@@ -313,32 +314,86 @@ void *button_action(void *h_sock)
 
         // printf("send target_degree\n");
         // write(clnt_sock, t_msg, 2);
+        if (-1 == GPIOWrite(BUTTONOUT,1))
+            exit(3);
+        
+        value=GPIORead(BUTTONPIN);
+
+        if(value == 1){
+
+            for(int i=0;i<200;i++)
+            {
+                if (-1 == GPIOWrite(BUTTONOUT,1))
+                    exit(3);
+
+                if(GPIORead(BUTTONPIN)==0)
+                {
+                    
+                    p_short=1;
+
+                    break;    
+                }
+                usleep(10000);
+
+            }
+            if (p_short)
+            {
+                printf("short\n");
+                 t++;
+                t = t % 3;
+                
+                strcpy(target_degree, target[t]);
+                strcpy(msg, target[t]);
+
+                lcd_action();
+
+                write(clnt_sock, msg, sizeof(msg));
 
 
-        if(GPIORead(BUTTONPIN) == 1 && time_check < 3){
-            time_check++;
-        }
-        else if(GPIORead(BUTTONPIN) == 1 && time_check == 3){
-            mode += 1;
-            mode = mode % 2;
+                p_short=0;
 
-            lcd_action();
+            }
+            else
+            {
+                
+                printf("long\n");
 
-            time_check = 0;
-        }
-        else if(GPIORead(BUTTONPIN) == 0 && time_check != 0){
-            t++;
-            t = t % 3;
+                mode += 1;
+                mode = mode % 2;
+
+                lcd_action();
+            }
             
-            strcpy(target_degree, target[t]);
-            strcpy(msg, target[t]);
 
-            lcd_action();
-
-            write(clnt_sock, msg, sizeof(msg));
-
-            time_check = 0;
         }
+
+        // if(value == 1 && time_check < 3){
+        //     printf("button_1\n");
+        //     time_check++;
+        // }
+        // else if(value == 1 && time_check == 3){
+        //     printf("button_2\n");
+        //     mode += 1;
+        //     mode = mode % 2;
+
+        //     lcd_action();
+
+        //     time_check = 0;
+        // }
+        // else if(value == 0 && time_check != 0){
+        //     printf("button_3\n");
+        //     t++;
+        //     t = t % 3;
+            
+        //     strcpy(target_degree, target[t]);
+        //     strcpy(msg, target[t]);
+
+        //     lcd_action();
+
+        //     write(clnt_sock, msg, sizeof(msg));
+
+        //     time_check = 0;
+        // }
 
         usleep(500 * 100);
     }
