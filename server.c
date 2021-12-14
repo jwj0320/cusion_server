@@ -383,6 +383,11 @@ void *press_sock(void* s_sock)
         if (str_len == -1)
             error_handling("read() error");
         state=atoi(msg);
+
+        // // for test
+        // state=1;
+        // mode=1;
+
         // vibration speeker
         if (state > 0)
         {
@@ -415,6 +420,10 @@ void *press_sock(void* s_sock)
                 softToneStop(BuzzPin);
             }
         }
+
+        // for test
+        state=0;
+        
 
         usleep(500 * 100);
     }
