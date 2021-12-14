@@ -1,3 +1,4 @@
+// gcc -o server server.c -lpthread -lwiringPi
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <fcntl.h>
@@ -275,7 +276,7 @@ int create_sock(const int port)
     if (listen(serv_sock, 5) == -1)
         error_handling("listen() error");
 
-    printf("Server(#%d) port %d is enabled!\n",port,serv_sock);
+    printf("Server(#%d) port %d is enabled!\n",serv_sock,port);
    
 
     return serv_sock;
