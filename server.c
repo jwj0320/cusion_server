@@ -63,7 +63,7 @@ typedef struct socks{
 } socks;
 
 int fd;
-char target_degree[BUFFER_MAX] = {30};
+char target_degree[BUFFER_MAX] = {'3','0'};
 char currunt_degree[BUFFER_MAX] ={0};
 int mode=0;//vibration=0 / speaker=1
 
@@ -491,13 +491,13 @@ int main()
     if (wiringPiSetup () == -1) exit (1);
 
     fd = wiringPiI2CSetup(I2C_ADDR);
+    lcd_init(); // setup LCD
     
     lcdLoc(LINE1);
     typeln("Hello World!");
     lcdLoc(LINE2);
     typeln("-CUSION-");
 
-    lcd_init(); // setup LCD
 
     int p_sock = create_sock(8888);
     int h_sock = create_sock(9999);
