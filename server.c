@@ -282,6 +282,71 @@ int create_sock(const int port)
     return serv_sock;
 }
 
+
+void *button_action(void *h_sock)
+{
+    char msg[BUFFER_MAX];
+    int clnt_sock=(*(int *)h_sock);
+    char* target[3] = {"30", "35", "40"};
+    int time_check = 0;
+    int t = 0;
+
+    if(-1 == GPIOExport(BUTTONOUT) || -1 == GPIOExport(BUTTONPIN))
+        return NULL;
+
+    while(1)
+    {
+        if(-1 == GPIODirection(BUTTONOUT, OUT) || -1 == GPIODirection(BUTTONPIN, IN))
+        {
+            usleep(200 * 10000);
+            continue;
+        }
+        break;
+    }
+
+    while (1)
+    {
+        // for test
+        
+        // usleep(300 * 10000);
+        // char *t_msg="50";
+
+        // printf("send target_degree\n");
+        // write(clnt_sock, t_msg, 2);
+
+
+        if(GPIORead(BUTTONPIN) == 1 && time_check < 3){
+            time_check++;
+        }
+        else if(GPIORead(BUTTONPIN) == 1 && time_check == 3){
+            mode += 1;
+            mode = mode % 2;
+
+            lcd_action();
+
+            time_check = 0;
+        }
+        else if(GPIORead(BUTTONPIN) == 0 && time_check != 0){
+            t++;
+            t = t % 3;
+            
+            strcpy(target_degree, target[t]);
+            strcpy(msg, target[t]);
+
+            lcd_action();
+
+            write(clnt_sock, msg, sizeof(msg));
+
+            time_check = 0;
+        }
+
+        usleep(500 * 100);
+    }
+
+
+    return NULL;
+}
+
 void *press_sock(void* s_sock)
 {
     int serv_sock=*(int*)s_sock;
@@ -321,8 +386,11 @@ void *press_sock(void* s_sock)
         // vibration speeker
         if (state > 0)
         {
+            printf("press state: %d\n",state);
+            printf("-------------------\n");
             if (mode == 0)
             {
+                printf("Vibration mode\n");
                 for (int repeat = 6; repeat < 0; repeat--)
                 {
                     if (-1 == GPIOWrite(MOTOROUT, repeat % 2))
@@ -332,6 +400,7 @@ void *press_sock(void* s_sock)
             }
             else
             {
+                printf("Speaker mode\n");
                 if (softToneCreate(BuzzPin) == -1)
                 {
                     printf("Soft Tone Failed !");
@@ -365,6 +434,10 @@ void *heat_sock(void *s_sock)
     int str_len;
     double degree;
 
+    int thr_id;
+    pthread_t p_thread;
+    int status;
+
     if (clnt_sock < 0)
     {
         clnt_addr_size = sizeof(clnt_addr);
@@ -375,6 +448,12 @@ void *heat_sock(void *s_sock)
     }    
 
     printf("Server(#%d) is accepted!\n",serv_sock);
+    thr_id=pthread_create(&p_thread, NULL, button_action, (void*)&clnt_sock);
+    if(thr_id<0)
+    {
+        perror("thread create error : ");
+        exit(0);
+    }
 
     while (1)
     {
@@ -391,60 +470,15 @@ void *heat_sock(void *s_sock)
 
         usleep(500 * 100);
     }
+
+    pthread_join(p_thread, (void **)&status);
+
     close(clnt_sock);
     close(serv_sock);
 
     return NULL;
 }
 
-
-void *button_action(void *h_sock)
-{
-    char msg[BUFFER_MAX];
-    int clnt_sock=((struct socks *)h_sock)->clnt_sock;
-    char* target[3] = {"30", "35", "40"};
-    int time_check = 0;
-    int t = 0;
-
-    if(-1 == GPIOExport(BUTTONOUT) || -1 == GPIOExport(BUTTONPIN))
-        return NULL;
-
-    if(-1 == GPIODirection(BUTTONOUT, OUT) || -1 == GPIODirection(BUTTONPIN, IN))
-        return NULL;
-
-    while (1)
-    {
-        if(GPIORead(BUTTONPIN) == 1 && time_check < 3){
-            time_check++;
-        }
-        else if(GPIORead(BUTTONPIN) == 1 && time_check == 3){
-            mode += 1;
-            mode = mode % 2;
-
-            lcd_action();
-
-            time_check = 0;
-        }
-        else if(GPIORead(BUTTONPIN) == 0 && time_check != 0){
-            t++;
-            t = t % 3;
-            
-            strcpy(target_degree, target[t]);
-            strcpy(msg, target[t]);
-
-            lcd_action();
-
-            write(clnt_sock, msg, sizeof(msg));
-
-            time_check = 0;
-        }
-
-        usleep(500 * 100);
-    }
-
-
-    return NULL;
-}
 
 int main()
 {
