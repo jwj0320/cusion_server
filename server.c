@@ -125,9 +125,9 @@ void lcd_init()   {
 
 
 void lcd_action(){
-    char* cD = "Currunt : ";
-    char* tD = "Target : ";
-    char* md = "Mode : ";
+    char cD[BUFFER_MAX] = "Currunt : ";
+    char tD[BUFFER_MAX] = "Target : ";
+    char md[BUFFER_MAX] = "Mode : ";
 
     strcat(cD, currunt_degree);
     strcat(tD, target_degree);
@@ -252,15 +252,14 @@ static int GPIOWrite(int pin, int value){
     return(0);
 }
 
-struct socks create_sock(const int port)
+int create_sock(const int port)
 {
-    int serv_sock, clnt_sock = -1;
+    int serv_sock=-1;
     struct sockaddr_in serv_addr, clnt_addr;
     socklen_t clnt_addr_size;
     char msg[BUFFER_MAX];
     int str_len;
 
-    struct socks sockets;
 
     serv_sock = socket(PF_INET, SOCK_STREAM, 0);
     if (serv_sock == -1)
@@ -275,6 +274,23 @@ struct socks create_sock(const int port)
         error_handling("bind() error");
     if (listen(serv_sock, 5) == -1)
         error_handling("listen() error");
+
+    printf("Server(#%d) port %d is enabled!\n",port,serv_sock);
+   
+
+    return serv_sock;
+}
+
+void *press_sock(void* s_sock)
+{
+    int serv_sock=*(int*)s_sock;
+    int clnt_sock = -1;
+    struct sockaddr_in clnt_addr;
+    socklen_t clnt_addr_size;
+    char msg[BUFFER_MAX];
+    int str_len;
+    int state;
+
     if (clnt_sock < 0)
     {
         clnt_addr_size = sizeof(clnt_addr);
@@ -283,20 +299,8 @@ struct socks create_sock(const int port)
         if (clnt_sock == -1)
             error_handling("accept() error");
     }
-
-    sockets.serv_sock=serv_sock;
-    sockets.clnt_sock=clnt_sock;
-
-    return sockets;
-}
-
-void *press_sock(void* p_sock)
-{
-    char msg[BUFFER_MAX];
-    int str_len;
-    int state;
-    int serv_sock=((struct socks*)p_sock)->serv_sock;
-    int clnt_sock=((struct socks*)p_sock)->clnt_sock;
+    
+    printf("Server(#%d) is accepted!\n",serv_sock);
 
     if(-1 == GPIOExport(MOTOROUT))
         return NULL;
@@ -350,13 +354,26 @@ void *press_sock(void* p_sock)
     return NULL;
 }
 
-void *heat_sock(void *h_sock)
+void *heat_sock(void *s_sock)
 {
+    int serv_sock=*(int*)s_sock;
+    int clnt_sock = -1;
+    struct sockaddr_in clnt_addr;
+    socklen_t clnt_addr_size;
     char msg[BUFFER_MAX];
     int str_len;
     double degree;
-    int serv_sock=((struct socks *)h_sock)->serv_sock;
-    int clnt_sock=((struct socks *)h_sock)->clnt_sock;
+
+    if (clnt_sock < 0)
+    {
+        clnt_addr_size = sizeof(clnt_addr);
+        clnt_sock = accept(serv_sock, (struct sockaddr *)&clnt_addr,
+                           &clnt_addr_size);
+        if (clnt_sock == -1)
+            error_handling("accept() error");
+    }    
+
+    printf("Server(#%d) is accepted!\n",serv_sock);
 
     while (1)
     {
@@ -366,7 +383,9 @@ void *heat_sock(void *h_sock)
         if (str_len == -1)
             error_handling("read() error");
         // temperature lcd
+        printf("heat msg: %s\n",msg);
         strcpy(currunt_degree, msg);
+        printf("current_degree: %s\n",msg);
         lcd_action();
 
         usleep(500 * 100);
@@ -445,8 +464,8 @@ int main()
 
     lcd_init(); // setup LCD
 
-    struct socks p_sock = create_sock(8888);
-    struct socks h_sock = create_sock(9999);
+    int p_sock = create_sock(8888);
+    int h_sock = create_sock(9999);
 
     thr_id=pthread_create(&p_thread[0],NULL, press_sock,(void*)&p_sock);
     if(thr_id<0)
@@ -461,12 +480,12 @@ int main()
         exit(0);
     }
 
-    thr_id=pthread_create(&p_thread[2], NULL, button_action, (void*)&h_sock);
-    if(thr_id<0)
-    {
-        perror("thread create error : ");
-        exit(0);
-    }
+    // thr_id=pthread_create(&p_thread[2], NULL, button_action, (void*)&h_sock);
+    // if(thr_id<0)
+    // {
+    //     perror("thread create error : ");
+    //     exit(0);
+    // }
 
     pthread_join(p_thread[0], (void **)&status);
     pthread_join(p_thread[1], (void **)&status);
